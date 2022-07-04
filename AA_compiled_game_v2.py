@@ -11,20 +11,6 @@ class Start:
         self.start_frame = Frame(padx=10, pady=10)
         self.start_frame.grid()
 
-        self.push_me_button = Button(text="Push Me", command=self.to_game)
-        self.push_me_button.grid(row=0, pady=10)
-
-    def to_game(self):
-
-        # Retrieve starting balance 
-        starting_balance = 50
-        stakes = 1
-
-        Game(self, stakes, starting_balance)
-
-        # Hide start up window 
-        root.withdraw()
-
         # Set Initial balance to zero
         self.starting_funds = IntVar ()
         self.starting_funds.set(0)
@@ -95,18 +81,9 @@ class Start:
         self.mediumstakes_button.config(state=DISABLED)
         self.highstakes_button.config(state=DISABLED)
 
-        # Help Button
-        self.help_button = Button(self.start_frame, text="How to Play",
-        bg="#808080", fg="white", font=button_font)
-        self.help_button.grid(row=4, pady=10)
-
-
 
 
     def check_funds(self):
-
-        print("checking...")
-
         starting_balance = self.start_amount_entry.get()
       
 
@@ -120,9 +97,9 @@ class Start:
 
         # Disable all stakes buttons in case user changes mind and
         # decreases amount entered
-        self.lowstakes_button.config(state=NORMAL)
-        self.mediumstakes_button.config(state=NORMAL)
-        self.highstakes_button.config(state=NORMAL)
+        self.lowstakes_button.config(state=DISABLED)
+        self.mediumstakes_button.config(state=DISABLED)
+        self.highstakes_button.config(state=DISABLED)
 
         try:
             starting_balance = int(starting_balance)
@@ -140,9 +117,12 @@ class Start:
                 # enable low and medium stakes buttons
                 self.lowstakes_button.config(state=NORMAL)
                 self.mediumstakes_button.config(state=NORMAL)
-            else:
+                self.highstakes_button.config(state=NORMAL)
+            elif starting_balance >= 10:
                 self.lowstakes_button.config(state=NORMAL)
-
+                self.mediumstakes_button.config(state=NORMAL)
+            else: 
+                self.lowstakes_button.config(state=NORMAL)
 
         except ValueError:
             has_errors = "yes"
@@ -190,11 +170,14 @@ class Game:
 
         # GUI Setup
         self.game_box = Toplevel()
+
+        self.game_box.protocol('WM_DELETE_WINDOW', self.to_quit)
+
         self.game_frame = Frame(self.game_box)
         self.game_frame.grid()
 
         # Heading row
-        self.heading_label = Label(self.game_frame, text="Heading",
+        self.heading_label = Label(self.game_frame, text="Play",
         font="Arial 24 bold", padx=10, pady=10)
         self.heading_label.grid(row=0)
 
@@ -210,18 +193,71 @@ class Game:
         self.play_button.grid(row=3)
 
     def reveal_boxes(self):
-        # retrieve the balance from the initial function
+        # Retrieve the balance from the initial function
         current_balance = self.balance.get()
+        stakes_multiplier = self.multiplier.get()
 
-        # Adjust the balance (subtract game cost and add pay out)
-        # For testing purposes, just add 2
-        current_balance += 2
+        round_winnings = 0
+        prizes = []
+        stats_prizes = []
+        backgrounds = []
+        for item in range(0, 3):
+            prize_num = random.randint(1,100)
 
-        # Set balance to adjusted balance
+            if 0 < prize_num <= 5:
+                prize = "gold\n(${})".format(5 * stakes_multiplier)
+                prize_list = "gold (${})".format(5 * stakes_multiplier)
+                back_color = "#CEA935" # Gold Colour
+                round_winnings += 5 * stakes_multiplier
+            elif 5 < prize_num <= 25:
+                prize = "silver\n(${})".format(2 * stakes_multiplier)
+                prize_list = "silver (${})".format(2 * stakes_multiplier)
+                back_color = "#B7B7B5" # Silver Colour
+                round_winnings += 2 * stakes_multiplier
+            elif 5 < prize_num <= 65:
+                prize = "copper\n(${})".format(stakes_multiplier)
+                prize_list = "copper (${})".format( stakes_multiplier)
+                back_color = "#BC7F61" # Copper Colour
+                round_winnings +=   stakes_multiplier
+            else:
+                prize = "lead\n($0)"
+                prize_list = "lead ($0)"
+                back_color = "#595E71" # Lead Colour
+
+            prizes.append(prize)
+            stats_prizes.append(prize_list)
+            backgrounds.append(back_color)
+
+        self.prize1_label.config(text=prizes[0], bg=backgrounds[0])
+        self.prize2_label.config(text=prizes[1], bg=backgrounds[1])
+        self.prize3_label.config(text=prizes[2], bg=backgrounds[2])
+
+
+
+        # Deduct cost of game
+        current_balance -= 5 * stakes_multiplier
+        # Add Winnings
+        current_balance += round_winnings
+
+        # Set Balance to new Balance
         self.balance.set(current_balance)
+        #update game_stats_list with current balance
+        self.game_stats_list[1] = current_balance
 
-        #Edit label so user can see their balance
-        self.balance_label.configure(text="Balance: {}".format(current_balance))
+        balance_statement="Game Cost: ${}\nPayback: ${} \n" \
+            "Current Balance: ${}".format(5 * stakes_multiplier,
+            round_winnings,
+            current_balance)
+
+        # Add round results to statistics list
+        round_summary = "{} | {} | {} - Cost: ${} | " \
+                        "Payback: ${} | Current Balance: " \
+                        "${}".format(stats_prizes[0], stats_prizes[1],
+                                    stats_prizes[2],
+                                    5 * stakes_multiplier,round_winnings,
+                                    current_balance)
+        self.round_stats_list.append(round_summary)
+        print(self.round_stats_list)
 
 
 class Help:
@@ -279,8 +315,109 @@ class Help:
         # Put help button back to normal...
         partner.help_button.config(state=NORMAL)
         self.help_box.destroy()
-        
-    
+
+
+class GameStats:
+    def __init__(self, partner, game_history, game_stats):
+
+        print(game_history)
+
+        # disable help button
+        partner.stats_button.config(state=DISABLED)
+
+        heading = "Arial 12 bold"
+        content = "Arial 12"
+
+        # Sets up child window 
+        self.stats_box = Toplevel ()
+
+        # If users press cross at top, closes help and 'releases' help button
+
+        self.stats_box.protocol('WM_DELETE_WINDOW', partial(self.close_stats, partner))
+
+        # Set up GUI Frame
+        self.stats_heading_label = Label(self.stats_frame, text="Game Statistics",
+        font="arial 19 bold")
+        self.stats_heading_label.grid(row=0)
+
+        # To Export <instructions> (row 1)
+        self.export_instructions = Label(self.stats_frame,
+                                        text="Here are your Game Statistics."
+                                            "Please use the Export button to "
+                                            "access the results of each "
+                                            "round that you played", wrap=250,
+                                            font="arial 10 italic",
+                                            justify=LEFT, fg="green",
+                                            padx=10, pady=10)
+        self.export_instructions.grid(row=1)
+
+        # Starting Balance (row 2)
+        self.details_frame = Frame(self.stats_frame)
+        self.details_frame.grid(row=2)
+
+        # Starting balance (row 2.0)
+
+        self.start_balance_label = Label(self.details_frame,
+        text="Starting Balance:", font=heading,
+        anchor="e")
+        self.start_balance_label.grid(row=0, column=0, padx=0)
+
+        self.start_balance_value_label = Label(self.details_frame, font=content,
+        text="${}".format(game_stats[0]), anchor="w")
+        self.start_balance_value_label.grid(row=0, column=1, padx=0)
+
+        # Current Balance (row 2.2)
+        self.current_balacne_label = Label(self.details_frame,
+        text="Current Balance:", font=heading,
+        anchor="e")
+        self.current_balance_label.grid(row=1, column=0, padx=0)
+
+        self.current_balance_value_label = Label(self.details_frame, font=content,
+        text="${}".format(game_stats[1]), anchor="")
+        self.current_balance_value_label.grid(row=1, column=1, padx=0)
+
+        if game_stats[1] > game_stats[0]:
+            win_loss = "Amount Won:"
+            amount = game_stats[1] - game_stats[0]
+            win_loss_fg = "green"
+        else:
+            win_loss = "Amount Lost:"
+            amount = game_stats[0] - game_stats[1]
+            win_loss_fg = "#660000"
+
+        # Amount won / lost (row 2.3)
+        self.wind_loss_label = Label(self.details_frame,
+        text=win_loss, font=heading,
+        anchor="e")
+        self.wind_loss_label.grid(row=2, column=0, padx=0)
+
+        self.wind_loss_value_label = Label(self.details_frame, font=content,
+        text="${}".format(amount),
+        fg=win_loss_fg, anchor="w")
+        self.wind_loss_value_label.grid(row=2, column=1, padx=0)
+
+        # Rounds Played (row 2.4)
+        self.games_played_label = Label(self.details_frame,
+        text="Rounds Played:", font=heading,
+        anchor="e")
+        self.games_played_label.grid(row=4, column=0, padx=0)
+
+        self.game_played_value_label = Label(self.detials_frame, font=content,
+        text=len(game_history),
+        anchor="w")
+        self.games_played_value_label.grid(row=4, column=1, padx=0)
+
+        # Dismiss button (row 2)
+        self.dismiss_btn = Button(self.help_frame, text="Dismiss", width=10,
+        bg="orange", fg="White", font="arial 15 bold", pady=10, command=partial(self.close_help, partner))
+        self.dismiss_btn.grid(row=2, pady=10)
+
+    def close_help(self, partner):
+        # Put help button back to normal...
+        partner.help_button.config(state=NORMAL)
+        self.help_box.destroy()
+
+
 
 
 
